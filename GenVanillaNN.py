@@ -116,28 +116,28 @@ class GenNNSkeToImage(nn.Module):
         self.model = nn.Sequential(
             # TP-TODO
             nn.ConvTranspose2d(99, 256, kernel_size=4, stride=1, padding=0),
-            nn.BatchNorm2d(256, 0.8),
-            nn.ReLU(),
+            nn.BatchNorm2d(256),
+            nn.LeakyReLU(),
             
             nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=1),
-            nn.BatchNorm2d(128, 0.8),
-            nn.ReLU(),
+            nn.BatchNorm2d(128),
+            nn.LeakyReLU(),
             
             nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
-            nn.BatchNorm2d(64, 0.8),
-            nn.ReLU(),
+            nn.BatchNorm2d(64),
+            nn.LeakyReLU(),
             
             nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),
-            nn.BatchNorm2d(32, 0.8),
-            nn.ReLU(),
+            nn.BatchNorm2d(32),
+            nn.LeakyReLU(),
             
             nn.ConvTranspose2d(32, 16, kernel_size=4, stride=2, padding=1),
-            nn.BatchNorm2d(16, 0.8),
-            nn.ReLU(),
+            nn.BatchNorm2d(16),
+            nn.LeakyReLU(),
             
             nn.ConvTranspose2d(16, 3, kernel_size=4, stride=2, padding=1),
-            nn.BatchNorm2d(3, 0.8),
-            nn.ReLU()
+            nn.BatchNorm2d(3),
+            nn.LeakyReLU()
         )
         self.to(device=self.device)
         print(self.model)
@@ -174,7 +174,7 @@ class GenVanillaNN():
                             # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
                             ])
         self.dataset = VideoSkeletonDataset(videoSke, ske_reduced=False, target_transform=tgt_transform, source_transform=src_transform)
-        self.dataloader = torch.utils.data.DataLoader(dataset=self.dataset, batch_size=512, shuffle=True)
+        self.dataloader = torch.utils.data.DataLoader(dataset=self.dataset, batch_size=700, shuffle=True)
         if loadFromFile and os.path.isfile(self.filename):
             print("GenVanillaNN: Load=", self.filename)
             print("GenVanillaNN: Current Working Directory: ", os.getcwd())
@@ -224,7 +224,7 @@ class GenVanillaNN():
 if __name__ == '__main__':
     force = False
     optSkeOrImage = 2           # use as input a skeleton (1) or an image with a skeleton drawed (2)
-    n_epoch = 20  # 200
+    n_epoch = 2000
     train = True
     #train = True
 
@@ -250,10 +250,11 @@ if __name__ == '__main__':
 
     # Test with a second video
     for i in range(targetVideoSke.skeCount()):
-        image = gen.generate( targetVideoSke.ske[i] )
-        #image = image*255
-        nouvelle_taille = (256, 256) 
-        image = cv2.resize(image, nouvelle_taille)
-        cv2.imshow('Image', image)
-        key = cv2.waitKey(0)
+        if i % 10 == 0:
+            image = gen.generate( targetVideoSke.ske[i] )
+            #image = image*255
+            nouvelle_taille = (256, 256) 
+            image = cv2.resize(image, nouvelle_taille)
+            cv2.imshow('Image', image)
+            key = cv2.waitKey(0)
     cv2.destroyAllWindows()
