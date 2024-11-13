@@ -178,7 +178,10 @@ class GenVanillaNN():
         if loadFromFile and os.path.isfile(self.filename):
             print("GenVanillaNN: Load=", self.filename)
             print("GenVanillaNN: Current Working Directory: ", os.getcwd())
-            self.netG.load_state_dict(torch.load(self.filename))
+            if torch.cuda.is_available():
+                self.netG.load_state_dict(torch.load(self.filename))
+            else:
+                self.netG.load_state_dict(torch.load(self.filename, map_location=torch.device('cpu')))
 
 
     def train(self, n_epochs=20):
@@ -226,6 +229,7 @@ class GenVanillaNN():
 
 if __name__ == '__main__':
     args = sys.argv
+    print(f'args are {args}')
     force = False
     optSkeOrImage = 2           # use as input a skeleton (1) or an image with a skeleton drawed (2)
     n_epoch = int(args[1])
