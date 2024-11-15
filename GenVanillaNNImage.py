@@ -198,27 +198,32 @@ class GenVanillaNNImage():
         optimizer = torch.optim.Adam(self.netG.parameters(), lr=0.0001)
         criterion = nn.MSELoss()
         
-        for n in range(n_epochs):
-            epoch_loss = 0.0
-            nb_sample = 0
-            for x, t in self.dataloader:
-                optimizer.zero_grad()
-                x = x.to(self.device)
-                t = t.to(self.device)
+        try:
+            for n in range(n_epochs):
+                epoch_loss = 0.0
+                nb_sample = 0
+                for x, t in self.dataloader:
+                    optimizer.zero_grad()
+                    x = x.to(self.device)
+                    t = t.to(self.device)
 
-                out = self.netG(x)
-                loss = criterion(out, t)
+                    out = self.netG(x)
+                    loss = criterion(out, t)
+                    
+                    
+                    loss.backward()
+                    optimizer.step()
+                    epoch_loss += loss.item()
+                    nb_sample += 1
                 
-                
-                loss.backward()
-                optimizer.step()
-                epoch_loss += loss.item()
-                nb_sample += 1
+                print(f"Epoch {n+1}/{n_epochs}, Loss: {epoch_loss/nb_sample}")
+                if n % 100 == 0:
+                    torch.save(self.netG.state_dict(), self.filename)
+            torch.save(self.netG.state_dict(), self.filename)
+        except KeyboardInterrupt:
+            print("Train was interupted, saving..")
+            torch.save(self.netG.state_dict(), self.filename)
             
-            print(f"Epoch {n+1}/{n_epochs}, Loss: {epoch_loss/nb_sample}")
-            if n % 100 == 0:
-                torch.save(self.netG.state_dict(), self.filename)
-        torch.save(self.netG.state_dict(), self.filename)
             
             
                 

@@ -72,32 +72,39 @@ class GenGAN():
 
     def train(self, n_epochs=20):
         """ Training loop for GAN """
-        for epoch in range(n_epochs):
-            for i, (skeleton, real_images) in enumerate(self.dataloader):
-                real_labels = torch.full((real_images.size(0),), self.real_label) * 0.9  # Smooth label
-                fake_labels = torch.full((real_images.size(0),), self.fake_label)
+        try : 
+            for epoch in range(n_epochs):
+                for i, (skeleton, real_images) in enumerate(self.dataloader):
+                    real_labels = torch.full((real_images.size(0),), self.real_label) * 0.9  # Smooth label
+                    fake_labels = torch.full((real_images.size(0),), self.fake_label)
 
-                self.netD.zero_grad()
-                
-                real_images = real_images.to(torch.float32)
-                output_real = self.netD(real_images).view(-1)
-                lossD_real = self.criterion(output_real, real_labels)
-                lossD_real.backward()
-                
-                fake_images = self.netG(skeleton)
-                output_fake = self.netD(fake_images.detach()).view(-1)
-                lossD_fake = self.criterion(output_fake, fake_labels)
-                lossD_fake.backward()
-                self.optimizerD.step()
+                    self.netD.zero_grad()
+                    
+                    real_images = real_images.to(torch.float32)
+                    output_real = self.netD(real_images).view(-1)
+                    lossD_real = self.criterion(output_real, real_labels)
+                    lossD_real.backward()
+                    
+                    fake_images = self.netG(skeleton)
+                    output_fake = self.netD(fake_images.detach()).view(-1)
+                    lossD_fake = self.criterion(output_fake, fake_labels)
+                    lossD_fake.backward()
+                    self.optimizerD.step()
 
-                self.netG.zero_grad()
-                output_fake = self.netD(fake_images).view(-1)
-                lossG = self.criterion(output_fake, real_labels)
-                lossG.backward()
-                self.optimizerG.step()
+                    self.netG.zero_grad()
+                    output_fake = self.netD(fake_images).view(-1)
+                    lossG = self.criterion(output_fake, real_labels)
+                    lossG.backward()
+                    self.optimizerG.step()
 
-                if i % 50 == 0:
-                    print(f"[{epoch}/{n_epochs}][{i}/{len(self.dataloader)}] Loss_D: {lossD_real+lossD_fake:.4f} Loss_G: {lossG:.4f}")
+                    if i % 50 == 0:
+                        print(f"[{epoch}/{n_epochs}][{i}/{len(self.dataloader)}] Loss_D: {lossD_real+lossD_fake:.4f} Loss_G: {lossG:.4f}")
+                if epoch % 10 == 0:
+                    torch.save(self.netG.state_dict(), self.filename)
+                    
+        except KeyboardInterrupt:
+            print('Training was interupted, saving..')
+            torch.save(self.netG.state_dict(), self.filename)
 
     def generate(self, ske):
         """ Generate an image from a skeleton input """
