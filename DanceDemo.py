@@ -4,6 +4,7 @@ import os
 import pickle
 import sys
 
+from GenVanillaNNImage import GenVanillaNNImage
 from VideoSkeleton import VideoSkeleton
 from VideoSkeleton import combineTwoImages
 from VideoReader import VideoReader
@@ -26,13 +27,13 @@ class DanceDemo:
             self.generator = GenNeirest(self.target)
         elif typeOfGen==2:         # VanillaNN
             print("Generator: GenSimpleNN")
-            self.generator = GenVanillaNN( self.target, loadFromFile=True, optSkeOrImage=1)
-        # elif typeOfGen==3:         # VanillaNN
-        #     print("Generator: GenSimpleNN")
-        #     self.generator = GenVanillaNN( self.target, loadFromFile=True, optSkeOrImage=2)
-        # elif typeOfGen==4:         # GAN
-        #     print("Generator: GenSimpleNN")
-        #     self.generator = GenGAN( self.target, loadFromFile=True)
+            self.generator = GenVanillaNN( self.target, loadFromFile=True)
+        elif typeOfGen==3:         # VanillaNNImage
+            print("Generator: GenSimpleNNImage")
+            self.generator = GenVanillaNNImage( self.target, loadFromFile=True)
+        elif typeOfGen==4:         # GAN
+            print("Generator: GenSimpleNN")
+            self.generator = GenGAN( self.target, loadFromFile=True)
         else:
             print("DanceDemo: typeOfGen error!!!")
 
@@ -69,7 +70,7 @@ if __name__ == '__main__':
     # VANILLA_NN_SKE = 2
     # VANILLA_NN_Image = 3
     # GAN = 4
-    GEN_TYPE = 2
+    GEN_TYPE = 3
     ddemo = DanceDemo("data/taichi2_full.mp4", GEN_TYPE)
     #ddemo = DanceDemo("tp/dance/data/taichi1.mp4")
     #ddemo = DanceDemo("tp/dance/data/karate1.mp4")

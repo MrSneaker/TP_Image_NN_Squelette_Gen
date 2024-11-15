@@ -31,10 +31,12 @@ class SkeToImageTransform:
     def __call__(self, ske):
         #image = Image.new('RGB', (self.imsize, self.imsize), (255, 255, 255))
         image = white_image = np.ones((self.imsize, self.imsize, 3), dtype=np.uint8) * 255
-        ske.draw_reduce(image)
+        Skeleton.draw_reduced(ske.reduce(), image)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         # cv2.imshow('Image', image)
         # key = cv2.waitKey(-1)
+        image = np.transpose(image, (2, 0, 1))
+        image = torch.from_numpy(image).float()
         return image
 
 
@@ -49,6 +51,7 @@ class VideoSkeletonDataset(Dataset):
         self.source_transform = source_transform
         self.target_transform = target_transform
         self.ske_reduced = ske_reduced
+        self.ske_to_image = SkeToImageTransform(image_size=128)
         print("VideoSkeletonDataset: ",
               "ske_reduced=", ske_reduced, "=(", Skeleton.reduced_dim, " or ",Skeleton.full_dim,")" )
 
@@ -58,16 +61,21 @@ class VideoSkeletonDataset(Dataset):
 
 
     def __getitem__(self, idx):
-        # prepreocess skeleton (input)
-        reduced = True
         ske = self.videoSke.ske[idx]
-        ske = self.preprocessSkeleton(ske)
-        # prepreocess image (output)
+        stick_image = self.ske_to_image(ske)
+
+        # Apply source_transform if provided (e.g., normalization or augmentation)
+        if self.source_transform:
+            stick_image = self.source_transform(Image.fromarray(stick_image))
+
+        # Load and transform the target image
         image = Image.open(self.videoSke.imagePath(idx))
         if self.target_transform:
             image = self.target_transform(image)
-        return ske, image
-
+            
+                
+        return stick_image, image
+    
     
     def preprocessSkeleton(self, ske):
         if self.source_transform:
@@ -92,6 +100,7 @@ class VideoSkeletonDataset(Dataset):
 
 
 
+
 def init_weights(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
@@ -103,39 +112,39 @@ def init_weights(m):
 
 
 
-class GenNNSkeToImage(nn.Module):
+class GenNNSkeImToImage(nn.Module):
     """ class that Generate a new image from videoSke from a new skeleton posture
        Fonc generator(Skeleton)->Image
     """
     def __init__(self):
-        super(GenNNSkeToImage, self).__init__()
+        super(GenNNSkeImToImage, self).__init__()
         self.input_dim = Skeleton.reduced_dim
         
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         
         self.model = nn.Sequential(
             # TP-TODO
-            nn.ConvTranspose2d(99, 256, kernel_size=4, stride=1, padding=0),
+            nn.Conv2d(3, 256, kernel_size=4, stride=1, padding=2),
             nn.BatchNorm2d(256),
             nn.LeakyReLU(),
             
-            nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=1),
+            nn.Conv2d(256, 128, kernel_size=4, stride=1, padding=1),
             nn.BatchNorm2d(128),
             nn.LeakyReLU(),
             
-            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
+            nn.Conv2d(128, 64, kernel_size=4, stride=1, padding=2),
             nn.BatchNorm2d(64),
             nn.LeakyReLU(),
             
-            nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),
+            nn.Conv2d(64, 32, kernel_size=4, stride=1, padding=1),
             nn.BatchNorm2d(32),
             nn.LeakyReLU(),
             
-            nn.ConvTranspose2d(32, 16, kernel_size=4, stride=2, padding=1),
+            nn.Conv2d(32, 16, kernel_size=4, stride=1, padding=2),
             nn.BatchNorm2d(16),
             nn.LeakyReLU(),
             
-            nn.ConvTranspose2d(16, 3, kernel_size=4, stride=2, padding=1),
+            nn.Conv2d(16, 3, kernel_size=4, stride=1, padding=1),
             nn.BatchNorm2d(3),
             nn.LeakyReLU()
         )
@@ -153,14 +162,14 @@ class GenNNSkeToImage(nn.Module):
 
 
 
-class GenVanillaNN():
+class GenVanillaNNImage():
     """ class that Generate a new image from videoSke from a new skeleton posture
        Fonc generator(Skeleton)->Image
     """
-    def __init__(self, videoSke, loadFromFile=False, optSkeOrImage=1):
+    def __init__(self, videoSke, loadFromFile=False, batch_size=32):
         image_size = 128
-        self.netG = GenNNSkeToImage()
-        src_transform = None
+        self.netG = GenNNSkeImToImage()
+        src_transform = SkeToImageTransform(image_size)
         self.filename = 'data/DanceGenVanillaFromIm.pth'
         
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -173,12 +182,15 @@ class GenVanillaNN():
                             # [transforms.Resize((64, 64)),
                             # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
                             ])
-        self.dataset = VideoSkeletonDataset(videoSke, ske_reduced=False, target_transform=tgt_transform, source_transform=src_transform)
-        self.dataloader = torch.utils.data.DataLoader(dataset=self.dataset, batch_size=700, shuffle=True)
+        self.dataset = VideoSkeletonDataset(videoSke, ske_reduced=True, target_transform=tgt_transform, source_transform=src_transform)
+        self.dataloader = torch.utils.data.DataLoader(dataset=self.dataset, batch_size=batch_size, shuffle=True)
         if loadFromFile and os.path.isfile(self.filename):
-            print("GenVanillaNN: Load=", self.filename)
-            print("GenVanillaNN: Current Working Directory: ", os.getcwd())
-            self.netG.load_state_dict(torch.load(self.filename))
+            print("GenVanillaNNImage: Load=", self.filename)
+            print("GenVanillaNNImage: Current Working Directory: ", os.getcwd())
+            if torch.cuda.is_available():
+                self.netG.load_state_dict(torch.load(self.filename))
+            else:
+                self.netG.load_state_dict(torch.load(self.filename, map_location=torch.device('cpu')))
 
 
     def train(self, n_epochs=20):
@@ -213,12 +225,14 @@ class GenVanillaNN():
 
     def generate(self, ske):
         """ generator of image from skeleton """
-        ske_t = self.dataset.preprocessSkeleton(ske)
-        ske_t = ske_t.to(self.device)
-        ske_t_batch = ske_t.unsqueeze(0)        # make a batch
-        normalized_output = self.netG(ske_t_batch)
-        normalized_output = torch.Tensor.cpu(normalized_output)
-        res = self.dataset.tensor2image(normalized_output[0])       # get image 0 from the batch
+        self.netG.eval()
+        with torch.no_grad():
+            ske_t = self.dataset.preprocessSkeleton(ske)
+            ske_t = ske_t.to(self.device)
+            ske_t_batch = ske_t.unsqueeze(0)        # make a batch
+            normalized_output = self.netG(ske_t_batch)
+            normalized_output = torch.Tensor.cpu(normalized_output)
+            res = self.dataset.tensor2image(normalized_output[0])       # get image 0 from the batch
         return res
 
 
@@ -228,7 +242,6 @@ if __name__ == '__main__':
     args = sys.argv
     print(f'args are {args}')
     force = False
-    optSkeOrImage = 2           # use as input a skeleton (1) or an image with a skeleton drawed (2)
     n_epoch = int(args[1])
     train = True
     if len(args) > 2:
@@ -236,24 +249,29 @@ if __name__ == '__main__':
     else:
         test_opcv = False
     
-    if len(sys.argv) > 3:
-        filename = sys.argv[3]
-        if len(sys.argv) > 4:
-            force = sys.argv[4].lower() == "true"
+    if len(args) > 3:
+        batch_size = int(args[3])
+    else:
+        batch_size = 32
+    
+    if len(sys.argv) > 4:
+        filename = sys.argv[4]
+        if len(sys.argv) > 5:
+            force = sys.argv[5].lower() == "true"
     else:
         filename = "data/taichi1.mp4"
-    print("GenVanillaNN: Current Working Directory=", os.getcwd())
-    print("GenVanillaNN: Filename=", filename)
-    print("GenVanillaNN: Filename=", filename)
+    print("GenVanillaNNImage: Current Working Directory=", os.getcwd())
+    print("GenVanillaNNImage: Filename=", filename)
+    print("GenVanillaNNImage: Filename=", filename)
 
     targetVideoSke = VideoSkeleton(filename)
 
     if train:
         # Train
-        gen = GenVanillaNN(targetVideoSke, loadFromFile=False)
+        gen = GenVanillaNNImage(targetVideoSke, loadFromFile=False, batch_size=batch_size)
         gen.train(n_epoch)
     else:
-        gen = GenVanillaNN(targetVideoSke, loadFromFile=True)    # load from file        
+        gen = GenVanillaNNImage(targetVideoSke, loadFromFile=True)    # load from file        
 
 
     # Test with a second video

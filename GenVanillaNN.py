@@ -115,7 +115,7 @@ class GenNNSkeToImage(nn.Module):
         
         self.model = nn.Sequential(
             # TP-TODO
-            nn.ConvTranspose2d(99, 256, kernel_size=4, stride=1, padding=0),
+            nn.ConvTranspose2d(26, 256, kernel_size=4, stride=1, padding=0),
             nn.BatchNorm2d(256),
             nn.LeakyReLU(),
             
@@ -173,7 +173,7 @@ class GenVanillaNN():
                             # [transforms.Resize((64, 64)),
                             # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
                             ])
-        self.dataset = VideoSkeletonDataset(videoSke, ske_reduced=False, target_transform=tgt_transform, source_transform=src_transform)
+        self.dataset = VideoSkeletonDataset(videoSke, ske_reduced=True, target_transform=tgt_transform, source_transform=src_transform)
         self.dataloader = torch.utils.data.DataLoader(dataset=self.dataset, batch_size=700, shuffle=True)
         if loadFromFile and os.path.isfile(self.filename):
             print("GenVanillaNN: Load=", self.filename)
@@ -210,6 +210,7 @@ class GenVanillaNN():
 
     def generate(self, ske):
         """ generator of image from skeleton """
+        self.netG.eval()
         ske_t = self.dataset.preprocessSkeleton(ske)
         ske_t = ske_t.to(self.device)
         ske_t_batch = ske_t.unsqueeze(0)        # make a batch
