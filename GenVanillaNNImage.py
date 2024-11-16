@@ -216,7 +216,7 @@ class GenVanillaNNImage():
                     epoch_loss += loss.item()
                     nb_sample += 1
                 
-                print(f"Epoch {n+1}/{n_epochs}, Loss: {epoch_loss/nb_sample}")
+                print(f"Epoch {n+1}/{n_epochs}, Loss: {epoch_loss/nb_sample}", sep='\r')
                 if n % 100 == 0:
                     torch.save(self.netG.state_dict(), self.filename)
             torch.save(self.netG.state_dict(), self.filename)

@@ -74,6 +74,8 @@ class GenGAN():
         """ Training loop for GAN """
         try : 
             for epoch in range(n_epochs):
+                epoch_loss = 0.0
+                nb_sample = 0
                 for i, (skeleton, real_images) in enumerate(self.dataloader):
                     real_labels = torch.full((real_images.size(0),), self.real_label) * 0.9  # Smooth label
                     fake_labels = torch.full((real_images.size(0),), self.fake_label)
@@ -96,9 +98,11 @@ class GenGAN():
                     lossG = self.criterion(output_fake, real_labels)
                     lossG.backward()
                     self.optimizerG.step()
+                    
+                    epoch_loss += lossG.item()
+                    nb_sample += 1
 
-                    if i % 50 == 0:
-                        print(f"[{epoch}/{n_epochs}][{i}/{len(self.dataloader)}] Loss_D: {lossD_real+lossD_fake:.4f} Loss_G: {lossG:.4f}")
+                print(f"Epoch {epoch+1}/{n_epochs}, Loss: {epoch_loss/nb_sample}", sep='\r')
                 if epoch % 10 == 0:
                     torch.save(self.netG.state_dict(), self.filename)
                     
