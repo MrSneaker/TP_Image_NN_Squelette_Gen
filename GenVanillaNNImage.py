@@ -64,11 +64,9 @@ class VideoSkeletonDataset(Dataset):
         ske = self.videoSke.ske[idx]
         stick_image = self.ske_to_image(ske)
 
-        # Apply source_transform if provided (e.g., normalization or augmentation)
         if self.source_transform:
             stick_image = self.source_transform(Image.fromarray(stick_image))
 
-        # Load and transform the target image
         image = Image.open(self.videoSke.imagePath(idx))
         if self.target_transform:
             image = self.target_transform(image)

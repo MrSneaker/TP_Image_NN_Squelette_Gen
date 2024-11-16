@@ -1,3 +1,4 @@
+from ast import arg
 import numpy as np
 import cv2
 import os
@@ -66,11 +67,13 @@ class DanceDemo:
 
 
 if __name__ == '__main__':
+    args = sys.argv
+    mode = int(args[1])
     # NEAREST = 1
     # VANILLA_NN_SKE = 2
     # VANILLA_NN_Image = 3
     # GAN = 4
-    GEN_TYPE = 3
+    GEN_TYPE = mode
     ddemo = DanceDemo("data/taichi2_full.mp4", GEN_TYPE)
     #ddemo = DanceDemo("tp/dance/data/taichi1.mp4")
     #ddemo = DanceDemo("tp/dance/data/karate1.mp4")
