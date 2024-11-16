@@ -178,10 +178,7 @@ class GenVanillaNN():
         if loadFromFile and os.path.isfile(self.filename):
             print("GenVanillaNN: Load=", self.filename)
             print("GenVanillaNN: Current Working Directory: ", os.getcwd())
-            if torch.cuda.is_available():
-                self.netG.load_state_dict(torch.load(self.filename))
-            else:
-                self.netG.load_state_dict(torch.load(self.filename, map_location=torch.device('cpu')))
+            self.netG.load_state_dict(torch.load(self.filename))
 
 
     def train(self, n_epochs=20):
@@ -204,13 +201,10 @@ class GenVanillaNN():
                 loss.backward()
                 optimizer.step()
                 epoch_loss += loss.item()
-                nb_sample += 1
+                nb_sample += t.size(0)
             
             print(f"Epoch {n+1}/{n_epochs}, Loss: {epoch_loss/nb_sample}")
-            if n % 100 == 0:
-                torch.save(self.netG.state_dict(), self.filename)
         torch.save(self.netG.state_dict(), self.filename)
-            
             
                 
 
@@ -229,21 +223,16 @@ class GenVanillaNN():
 
 
 if __name__ == '__main__':
-    args = sys.argv
-    print(f'args are {args}')
     force = False
     optSkeOrImage = 2           # use as input a skeleton (1) or an image with a skeleton drawed (2)
-    n_epoch = int(args[1])
+    n_epoch = 2000
     train = True
-    if len(args) > 2:
-        test_opcv = args[2] == '--test'
-    else:
-        test_opcv = False
-    
-    if len(sys.argv) > 3:
-        filename = sys.argv[3]
-        if len(sys.argv) > 4:
-            force = sys.argv[4].lower() == "true"
+    #train = True
+
+    if len(sys.argv) > 1:
+        filename = sys.argv[1]
+        if len(sys.argv) > 2:
+            force = sys.argv[2].lower() == "true"
     else:
         filename = "data/taichi1.mp4"
     print("GenVanillaNN: Current Working Directory=", os.getcwd())
@@ -261,13 +250,12 @@ if __name__ == '__main__':
 
 
     # Test with a second video
-    if test_opcv:
-        for i in range(targetVideoSke.skeCount()):
-            if i % 10 == 0:
-                image = gen.generate( targetVideoSke.ske[i] )
-                #image = image*255
-                nouvelle_taille = (256, 256) 
-                image = cv2.resize(image, nouvelle_taille)
-                cv2.imshow('Image', image)
-                key = cv2.waitKey(0)
-        cv2.destroyAllWindows()
+    for i in range(targetVideoSke.skeCount()):
+        if i % 10 == 0:
+            image = gen.generate( targetVideoSke.ske[i] )
+            #image = image*255
+            nouvelle_taille = (256, 256) 
+            image = cv2.resize(image, nouvelle_taille)
+            cv2.imshow('Image', image)
+            key = cv2.waitKey(0)
+    cv2.destroyAllWindows()
