@@ -88,3 +88,8 @@ pip install -r requirements.txt
 ```
 
 We mention that the version of python use for this project is Python 3.10.15.
+
+# Contributors
+
+- **Matéo MUNOZ**  
+- **Ismail CHAKRANE**
