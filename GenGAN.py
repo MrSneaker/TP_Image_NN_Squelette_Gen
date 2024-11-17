@@ -143,6 +143,7 @@ class GenGAN():
                 nb_sample = 0
 
                 for i, (skeleton, real_images) in enumerate(self.dataloader):
+                    
                     real_labels = torch.full((real_images.size(0),), self.real_label).to(self.device)
                     fake_labels = torch.full((real_images.size(0),), self.fake_label).to(self.device)
 
@@ -230,7 +231,7 @@ if __name__ == '__main__':
 
     targetVideoSke = VideoSkeleton(filename)
 
-    gen = GenGAN(targetVideoSke, loadFromFile=loadFromFile)
+    gen = GenGAN(targetVideoSke, loadFromFile=loadFromFile, batch_size=batch_size)
     gen.train(n_epochs=n_epoch)
     
     if test_opcv:
