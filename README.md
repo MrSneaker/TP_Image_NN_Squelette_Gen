@@ -105,7 +105,7 @@ The implementation is handled in the GenVanillaNN class:
 
 ### 3.3 Run
 
-For the demo with trained model (XX epoch):
+For the demo with trained model (30 epoch):
 
 ```bash
     python3 DanceDemo 3
