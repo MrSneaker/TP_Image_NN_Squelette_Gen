@@ -13,9 +13,8 @@ from GenVanillaNNImage import SkeToImageTransform
 from VideoSkeleton import VideoSkeleton
 from VideoReader import VideoReader
 from Skeleton import Skeleton
-from GenVanillaNNImage import GenNNSkeImToImage  # Assuming GenNNSkeToImage is the generator network
+from GenVanillaNNImage import GenNNSkeImToImage
 
-# Define the Discriminator class
 class Discriminator(nn.Module):
     def __init__(self, ngpu=0):
         super(Discriminator, self).__init__()
@@ -99,12 +98,11 @@ class VideoSkeletonDataset(Dataset):
         denormalized_output = denormalized_image * 1
         return denormalized_output
 
-# Define the GenGAN class
 class GenGAN():
     """ Class that generates an image from a skeleton posture using a GAN """
     def __init__(self, videoSke, loadFromFile=False, batch_size=16):
-        self.netG = GenNNSkeImToImage()  # Initialize generator
-        self.netD = Discriminator()    # Initialize discriminator
+        self.netG = GenNNSkeImToImage()
+        self.netD = Discriminator()
         self.real_label = 1.
         self.fake_label = 0.
         self.filename = 'data/DanceGenGAN.pth'
@@ -129,63 +127,61 @@ class GenGAN():
             self.netG.load_state_dict(torch.load(self.filename))
 
         
-        self.criterion = nn.MSELoss()
-        self.optimizerD = optim.Adam(self.netD.parameters(), lr=0.0001, betas=(0.5, 0.999))
-        self.optimizerG = optim.Adam(self.netG.parameters(), lr=0.0002, betas=(0.5, 0.999))
+        self.criterion = nn.BCELoss()
+        self.criterion_G = nn.L1Loss()
+        self.optimizerD = optim.Adam(self.netD.parameters(), lr=0.0001)
+        self.optimizerG = optim.Adam(self.netG.parameters(), lr=0.0001)
 
     def train(self, n_epochs=20):
         """ Training loop for GAN """
+        
+        print(f'start training, device is : {self.device}')
+        
         try : 
             for epoch in range(n_epochs):
                 epoch_loss = 0.0
                 nb_sample = 0
 
                 for i, (skeleton, real_images) in enumerate(self.dataloader):
-                    real_labels = torch.full((real_images.size(0),), self.real_label * 0.9).to(self.device)  # Smooth labels
+                    real_labels = torch.full((real_images.size(0),), self.real_label).to(self.device)
                     fake_labels = torch.full((real_images.size(0),), self.fake_label).to(self.device)
 
                     skeleton = skeleton.to(self.device)
                     real_images = real_images.to(self.device)
 
-                    # Mise à jour du Discriminateur (1 fois sur 2)
-                    if i % 2 == 0:  # Condition pour mettre à jour le discriminateur
-                        self.netD.zero_grad()
+                    self.netD.zero_grad()
 
-                        # Real images
-                        real_images = real_images.to(torch.float32)
-                        output_real = self.netD(real_images).view(-1)
-                        lossD_real = self.criterion(output_real, real_labels)
-                        lossD_real.backward()
+                    real_images = real_images.to(torch.float32)
+                    output_real = self.netD(real_images).view(-1)
+                    lossD_real = self.criterion(output_real, real_labels)
+                    lossD_real.backward()
 
-                        # Fake images
-                        fake_images = self.netG(skeleton).detach()  # Détacher le graphe ici
-                        output_fake = self.netD(fake_images).view(-1)
-                        lossD_fake = self.criterion(output_fake, fake_labels)
-                        lossD_fake.backward()
-
-                        self.optimizerD.step()
-
-                    # Mise à jour du Générateur (à chaque itération)
-                    self.netG.zero_grad()
-                    fake_images = self.netG(skeleton)  # Recréez les images factices
+                    fake_images = self.netG(skeleton).detach()
                     output_fake = self.netD(fake_images).view(-1)
-                    lossG = self.criterion(output_fake, real_labels)
+                    lossD_fake = self.criterion(output_fake, fake_labels)
+                    lossD_fake.backward()
+
+                    self.optimizerD.step()
+
+                    self.netG.zero_grad()
+                    fake_images = self.netG(skeleton)
+                    output_fake = self.netD(fake_images).view(-1)
+                    lossG = 100.0 * self.criterion_G(fake_images, real_images) + 1.0 * self.criterion(output_fake, real_labels)
                     lossG.backward()
                     self.optimizerG.step()
 
                     epoch_loss += lossG.item()
                     nb_sample += 1
 
-                    if i % 50 == 0:
-                        print(f"Epoch {epoch+1}/{n_epochs}, Iter {i}, LossG = {lossG.item()}", end='\r')
+                    print(f"Epoch {epoch+1}/{n_epochs}, Iter {i} / {len(self.dataloader)}, LossG = {lossG.item()}", end='\n')
 
-                print(f"Epoch {epoch+1}/{n_epochs}, Avg LossG: {epoch_loss/nb_sample}", end='\r')
+                print(f"Epoch {epoch+1}/{n_epochs}, Avg LossG: {epoch_loss/nb_sample}", end='\n')
 
                 if epoch % 10 == 0:
                     torch.save(self.netG.state_dict(), self.filename)
                     
         except KeyboardInterrupt:
-            print('Training was interupted, saving..')
+            print(f'Training was interupted at {epoch}, saving..')
             torch.save(self.netG.state_dict(), self.filename)
 
     def generate(self, ske):
@@ -215,11 +211,18 @@ if __name__ == '__main__':
         batch_size = int(sys.argv[3])
     else:
         batch_size = 16
-    
+        
     if len(sys.argv) > 4:
-        filename = sys.argv[4]
-        if len(sys.argv) > 5:
-            force = sys.argv[5].lower() == "true"
+        loadFromFile = sys.argv == 'loadSaved'
+    else:
+        loadFromFile = False
+        
+    print(f'batch size is {batch_size}')
+    
+    if len(sys.argv) > 5:
+        filename = sys.argv[5]
+        if len(sys.argv) > 6:
+            force = sys.argv[6].lower() == "true"
     else:
         filename = "data/taichi1.mp4"
     print("GenGAN: Current Working Directory=", os.getcwd())
@@ -227,12 +230,19 @@ if __name__ == '__main__':
 
     targetVideoSke = VideoSkeleton(filename)
 
-    gen = GenGAN(targetVideoSke, loadFromFile=False)
+    gen = GenGAN(targetVideoSke, loadFromFile=loadFromFile)
     gen.train(n_epochs=n_epoch)
     
-    for i in range(targetVideoSke.skeCount()):
-        image = gen.generate(targetVideoSke.ske[i])
-        resized_image = cv2.resize(image, (256, 256))
-        cv2.imshow('Generated Image', resized_image)
-        cv2.waitKey(0) 
-    cv2.destroyAllWindows()
+    if test_opcv:
+        for i in range(targetVideoSke.skeCount()):
+            try:
+                image = gen.generate(targetVideoSke.ske[i])
+                resized_image = cv2.resize(image, (256, 256))
+                cv2.imshow('Generated Image', resized_image)
+                if cv2.waitKey(10) & 0xFF == 27:
+                    print("Interruption par Échap")
+                    break
+            except KeyboardInterrupt:
+                print('Interruption')
+                break
+        cv2.destroyAllWindows()

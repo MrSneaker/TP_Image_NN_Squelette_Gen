@@ -64,8 +64,8 @@ class VideoSkeletonDataset(Dataset):
         ske = self.videoSke.ske[idx]
         stick_image = self.ske_to_image(ske)
 
-        if self.source_transform:
-            stick_image = self.source_transform(Image.fromarray(stick_image))
+        # if self.source_transform:
+        #     stick_image = self.source_transform(Image.fromarray(stick_image))
 
         image = Image.open(self.videoSke.imagePath(idx))
         if self.target_transform:
@@ -143,8 +143,7 @@ class GenNNSkeImToImage(nn.Module):
             nn.LeakyReLU(),
             
             nn.Conv2d(16, 3, kernel_size=4, stride=1, padding=1),
-            nn.BatchNorm2d(3),
-            nn.LeakyReLU()
+            nn.Tanh()
         )
         self.to(device=self.device)
         print(self.model)
@@ -194,7 +193,7 @@ class GenVanillaNNImage():
     def train(self, n_epochs=20):
         # TP-TODO
         optimizer = torch.optim.Adam(self.netG.parameters(), lr=0.0001)
-        criterion = nn.MSELoss()
+        criterion = nn.L1Loss()
         
         try:
             for n in range(n_epochs):
@@ -208,13 +207,12 @@ class GenVanillaNNImage():
                     out = self.netG(x)
                     loss = criterion(out, t)
                     
-                    
                     loss.backward()
                     optimizer.step()
                     epoch_loss += loss.item()
                     nb_sample += 1
                 
-                print(f"Epoch {n+1}/{n_epochs}, Loss: {epoch_loss/nb_sample}", sep='\r')
+                print(f"Epoch {n+1}/{n_epochs}, Loss: {epoch_loss/nb_sample}", end='\r')
                 if n % 100 == 0:
                     torch.save(self.netG.state_dict(), self.filename)
             torch.save(self.netG.state_dict(), self.filename)
