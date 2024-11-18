@@ -124,8 +124,10 @@ class GenGAN():
 
         if loadFromFile and os.path.isfile(self.filename):
             print("GenGAN: Loading from file:", self.filename)
-            self.netG.load_state_dict(torch.load(self.filename))
-
+            if torch.cuda.is_available():
+                self.netG.load_state_dict(torch.load(self.filename))
+            else:
+                self.netG.load_state_dict(torch.load(self.filename, map_location=torch.device('cpu')))
         
         self.criterion = nn.BCELoss()
         self.criterion_G = nn.L1Loss()
